@@ -1,0 +1,13 @@
+[submodule "third_party/re2"]
+    path = third_party/re2
+    url = https://github.com/google/re2.git
+    branch = 2023-11-01
+
+[submodule "third_party/pcre2"]
+    path = third_party/pcre2
+    url = https://github.com/PCRE2Project/pcre2.git
+    branch = pcre2-10.42
+
+[submodule "third_party/ctre"]
+    path = third_party/ctre
+    url = https://github.com/hanickadot/compile-time-regular-expressions.git

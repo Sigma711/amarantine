@@ -1,0 +1,53 @@
+# Build directories
+build/
+cmake-build-*/
+out/
+
+# CMake
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+install_manifest.txt
+compile_commands.json
+
+# Compiled Object files
+*.o
+*.obj
+*.so
+*.dylib
+*.dll
+*.a
+*.lib
+*.exe
+*.out
+*.app
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Third-party libraries (handled as submodules)
+third_party/re2/
+third_party/pcre2/
+third_party/ctre/
+third_party/hyperscan/
+
+# Backup files
+*.bak
+*.tmp
+
+# Logs
+*.log
+
+# Generated files
+*.d
+*.ii
+*.s
+
+# Package managers
+vendor/
+node_modules/
