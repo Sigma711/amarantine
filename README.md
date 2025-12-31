@@ -2,6 +2,8 @@
 
 > "The flower that never fades, etched in eternal bloom."
 
+!["amarantine" logo](./images/amarantine.jpg)
+
 Amarantine is a high-performance, lightweight C++ regex engine built with a virtual machine-based execution model. Named after the mythical flower that never fades, this library promises enduring performance and elegant design.
 
 ## Features
