@@ -30,11 +30,10 @@ endif()
 # Third Party Libraries for Benchmarking
 # ============================================================================
 
-# Check if third_party directory exists and create if needed
+# Check third_party directory
 set(THIRD_PARTY_DIR "${CMAKE_CURRENT_SOURCE_DIR}/third_party")
-file(MAKE_DIRECTORY "${THIRD_PARTY_DIR}")
 
-# Detect fetch script and fetch third-party libraries
+# Detect fetch script for manual use only
 if(WIN32)
     set(FETCH_SCRIPT "${CMAKE_CURRENT_SOURCE_DIR}/scripts/fetch_libs.ps1")
     set(FETCH_CMD powershell -ExecutionPolicy Bypass -File)
@@ -48,19 +47,6 @@ else()
     endif()
 endif()
 
-# Auto-fetch third-party libraries if script exists
-if(EXISTS "${FETCH_SCRIPT}")
-    message(STATUS "Auto-fetching third-party libraries (RE2, PCRE2, Hyperscan)...")
-    execute_process(
-        COMMAND ${FETCH_CMD} "${FETCH_SCRIPT}"
-        WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
-        RESULT_VARIABLE FETCH_RESULT
-        OUTPUT_VARIABLE FETCH_OUTPUT
-        ERROR_VARIABLE FETCH_ERROR
-    )
-    message(STATUS "Fetch completed (result: ${FETCH_RESULT})")
-endif()
-
 set(USE_SYSTEM_RE2 OFF CACHE BOOL "Use system-installed RE2 instead of third_party")
 set(USE_SYSTEM_PCRE2 OFF CACHE BOOL "Use system-installed PCRE2 instead of third_party")
 set(USE_SYSTEM_HYPERSCAN OFF CACHE BOOL "Use system-installed Hyperscan instead of third_party")
@@ -70,7 +56,8 @@ set(USE_SYSTEM_HYPERSCAN OFF CACHE BOOL "Use system-installed Hyperscan instead 
 # ============================================================================
 set(RE2_FOUND FALSE)
 set(RE2_TARGET "")
-if(EXISTS "${THIRD_PARTY_DIR}/re2")
+# Only check if re2/re2.h exists (indicates submodule is initialized)
+if(EXISTS "${THIRD_PARTY_DIR}/re2/re2.h" OR EXISTS "${THIRD_PARTY_DIR}/re2/src/re2/re2.h")
     message(STATUS "Found RE2 in third_party")
 
     set(RE2_LIB_DIR "${THIRD_PARTY_DIR}/re2/obj")
@@ -154,27 +141,37 @@ endif()
 # PCRE2 (from third_party only)
 # ============================================================================
 set(PCRE2_FOUND FALSE)
+# Only enable if both library and header exist
 if(EXISTS "${THIRD_PARTY_DIR}/pcre2/build/libpcre2-8.a" OR EXISTS "${THIRD_PARTY_DIR}/pcre2/build/libpcre2-8.so")
-    message(STATUS "Found built PCRE2 in third_party")
-    add_compile_definitions(HAVE_PCRE2)
-    include_directories("${THIRD_PARTY_DIR}/pcre2/src")
-    list(APPEND BENCHMARK_LIBS "${THIRD_PARTY_DIR}/pcre2/build/libpcre2-8.a")
-    set(PCRE2_FOUND TRUE)
-else()
-    message(WARNING "PCRE2 not built - run fetch script to build")
+    if(EXISTS "${THIRD_PARTY_DIR}/pcre2/src/pcre2.h" OR EXISTS "${THIRD_PARTY_DIR}/pcre2/src/pcre2.h.in")
+        message(STATUS "Found built PCRE2 in third_party")
+        add_compile_definitions(HAVE_PCRE2)
+        include_directories("${THIRD_PARTY_DIR}/pcre2/src")
+        list(APPEND BENCHMARK_LIBS "${THIRD_PARTY_DIR}/pcre2/build/libpcre2-8.a")
+        set(PCRE2_FOUND TRUE)
+    endif()
+endif()
+if(NOT PCRE2_FOUND)
+    message(STATUS "PCRE2 not found or not built - run 'git submodule update --init --recursive' and fetch script")
 endif()
 
 # ============================================================================
 # CTRE (Compile Time Regular Expression from third_party)
 # ============================================================================
 set(CTRE_FOUND FALSE)
+# Only enable if ctre.hpp actually exists and contains content
 if(EXISTS "${THIRD_PARTY_DIR}/ctre/include/ctre.hpp")
-    message(STATUS "Found CTRE in third_party")
-    add_compile_definitions(HAVE_CTRE)
-    include_directories("${THIRD_PARTY_DIR}/ctre/include")
-    set(CTRE_FOUND TRUE)
-else()
-    message(WARNING "CTRE not found - run fetch script to fetch")
+    # Check file size to ensure it's not empty (empty submodule placeholder)
+    file(SIZE "${THIRD_PARTY_DIR}/ctre/include/ctre.hpp" CTHRE_SIZE)
+    if(CTHRE_SIZE GREATER 100)
+        message(STATUS "Found CTRE in third_party")
+        add_compile_definitions(HAVE_CTRE)
+        include_directories("${THIRD_PARTY_DIR}/ctre/include")
+        set(CTRE_FOUND TRUE)
+    endif()
+endif()
+if(NOT CTRE_FOUND)
+    message(STATUS "CTRE not found - run 'git submodule update --init --recursive'")
 endif()
 
 # ============================================================================
@@ -228,19 +225,10 @@ add_custom_target(check
 install(FILES include/amaranth/amaranth.h DESTINATION include/amaranth)
 
 # Install examples and benchmark (optional)
-install(TARGETS simple_demo amarantine_demo benchmark DESTINATION ${CMAKE_INSTALL_BINDIR})
+install(TARGETS simple_demo amarantine_demo benchmark DESTINATION bin)
 
-# Install cmake config files for easier integration
-include(CMakePackageConfigHelpers)
-write_basic_package_version_file(
-    "${CMAKE_CURRENT_BINARY_DIR}/amarantineConfigVersion.cmake"
-    VERSION ${PROJECT_VERSION} COMPATIBILITY SameMajorVersion
-)
-
-install(FILES
-    "${CMAKE_CURRENT_BINARY_DIR}/amarantineConfigVersion.cmake"
-    DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/amarantine
-)
+# Remove cmake config files to avoid install issues
+# Users can include amaranth.h directly in their projects
 
 # Add uninstall target
 if(NOT TARGET uninstall)

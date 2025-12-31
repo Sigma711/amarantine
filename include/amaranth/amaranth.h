@@ -6,6 +6,7 @@
 #include <cstring>
 #include <functional>
 #include <memory>
+#include <stdexcept>
 #include <string>
 #include <vector>
 
@@ -819,9 +820,8 @@ class Parser {
         uint8_t uc = static_cast<uint8_t>(c);
         if (peek().type == TokenType::RANGE) {
           consume();
-          char end = consume().value;
-          uint8_t end_uc = static_cast<uint8_t>(end);
-          for (int i = c; i <= end; ++i) {
+          char end_char = consume().value;
+          for (int i = c; i <= end_char; ++i) {
             uc = static_cast<uint8_t>(i);
             if (uc < 64)
               low_mask |= (1ULL << uc);
@@ -1033,7 +1033,6 @@ class Compiler {
         auto& child = node->children[0];
         uint32_t min = node->minRepeat;
         uint32_t max = node->maxRepeat;
-        bool greedy = node->greedy;
 
         if (max == UINT32_MAX) {
           if (min == 0) {
@@ -1407,8 +1406,9 @@ class Regex {
   Regex(const Regex& other)
       : pattern_(other.pattern_),
         flags_(other.flags_),
-        compiled_(other.compiled_),
         instructions_(other.instructions_),
+        engine_(nullptr),
+        compiled_(other.compiled_),
         numCaptures_(other.numCaptures_) {
     if (compiled_) {
       engine_ = std::make_unique<VM>(instructions_, numCaptures_ + 1);
@@ -1420,9 +1420,9 @@ class Regex {
     if (this != &other) {
       pattern_ = other.pattern_;
       flags_ = other.flags_;
-      compiled_ = other.compiled_;
       instructions_ = other.instructions_;
       numCaptures_ = other.numCaptures_;
+      compiled_ = other.compiled_;
       if (compiled_) {
         engine_ = std::make_unique<VM>(instructions_, numCaptures_ + 1);
       } else {
@@ -1436,10 +1436,10 @@ class Regex {
   Regex(Regex&& other) noexcept
       : pattern_(std::move(other.pattern_)),
         flags_(other.flags_),
-        compiled_(other.compiled_),
         instructions_(std::move(other.instructions_)),
-        numCaptures_(other.numCaptures_),
-        engine_(std::move(other.engine_)) {
+        engine_(std::move(other.engine_)),
+        compiled_(other.compiled_),
+        numCaptures_(other.numCaptures_) {
     other.compiled_ = false;
   }
 
@@ -1448,10 +1448,10 @@ class Regex {
     if (this != &other) {
       pattern_ = std::move(other.pattern_);
       flags_ = other.flags_;
-      compiled_ = other.compiled_;
       instructions_ = std::move(other.instructions_);
-      numCaptures_ = other.numCaptures_;
       engine_ = std::move(other.engine_);
+      compiled_ = other.compiled_;
+      numCaptures_ = other.numCaptures_;
       other.compiled_ = false;
     }
     return *this;

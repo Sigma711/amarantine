@@ -1,0 +1,127 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build-and-test:
+    name: ${{ matrix.os }} / ${{ matrix.compiler }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        compiler: [clang, msvc]
+        include:
+          - os: ubuntu-latest
+            compiler: gcc
+          - os: macos-latest
+            compiler: gcc
+        exclude:
+          - os: ubuntu-latest
+            compiler: msvc
+          - os: macos-latest
+            compiler: msvc
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Setup Ninja (Windows)
+      if: matrix.os == 'windows-latest'
+      uses: seanmiddleditch/gha-setup-ninja@master
+
+    - name: Install build tools (Ubuntu)
+      if: matrix.os == 'ubuntu-latest'
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y ninja-build cmake
+
+    - name: Install build tools (macOS)
+      if: matrix.os == 'macos-latest'
+      run: brew install ninja cmake || echo "Tools already installed"
+
+    - name: Configure (GCC)
+      if: matrix.compiler == 'gcc'
+      run: cmake -S . -B build -G Ninja -DCMAKE_CXX_COMPILER=g++ -DCMAKE_BUILD_TYPE=Release -DUSE_STD_REGEX=OFF
+
+    - name: Configure (Clang/Ubuntu)
+      if: matrix.compiler == 'clang' && matrix.os == 'ubuntu-latest'
+      run: cmake -S . -B build -G Ninja -DCMAKE_CXX_COMPILER=clang++ -DCMAKE_BUILD_TYPE=Release -DUSE_STD_REGEX=OFF
+
+    - name: Configure (Clang/macOS)
+      if: matrix.compiler == 'clang' && matrix.os == 'macos-latest'
+      run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DUSE_STD_REGEX=OFF
+
+    - name: Configure (Clang/Windows)
+      if: matrix.compiler == 'clang' && matrix.os == 'windows-latest'
+      run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DUSE_STD_REGEX=OFF
+
+    - name: Configure (MSVC)
+      if: matrix.compiler == 'msvc'
+      run: cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DUSE_STD_REGEX=OFF
+
+    - name: Build
+      run: cmake --build build --config Release
+
+    - name: Run tests
+      run: |
+        cd build
+        ctest --output-on-failure
+
+    - name: Run simple_demo (Unix)
+      if: matrix.os != 'windows-latest'
+      run: ./build/simple_demo
+
+    - name: Run simple_demo (Windows)
+      if: matrix.os == 'windows-latest'
+      run: ./build/simple_demo.exe
+
+  format-check:
+    name: Code Formatting Check
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Setup clang-format
+      uses: DoozyX/clang-format-lint-action@v0.16
+      with:
+        source: '.'
+        extensions: 'h,cc,cpp'
+        clangFormatVersion: 17
+        style: file
+
+  install-test:
+    name: Install/Uninstall Test
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Setup Ninja
+      uses: seanmiddleditch/gha-setup-ninja@master
+
+    - name: Install build dependencies
+      run: sudo apt-get update && sudo apt-get install -y ninja-build
+
+    - name: Configure
+      run: cmake -S . -B build -G Ninja -DCMAKE_INSTALL_PREFIX=/tmp/amarantine-install -DCMAKE_BUILD_TYPE=Release -DUSE_STD_REGEX=OFF
+
+    - name: Build and Install
+      run: cmake --build build --target install
+
+    - name: Verify installation
+      run: |
+        test -f /tmp/amarantine-install/include/amaranth/amaranth.h
+        test -f /tmp/amarantine-install/bin/simple_demo
+
+    - name: Uninstall
+      run: cmake --build build --target uninstall
+
+    - name: Verify uninstall
+      run: |
+        test ! -f /tmp/amarantine-install/include/amaranth/amaranth.h

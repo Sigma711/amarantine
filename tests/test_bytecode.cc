@@ -1,6 +1,7 @@
 #include "amaranth/amaranth.h"
 
 #include <cassert>
+#include <chrono>
 #include <iostream>
 
 using namespace amaranth;

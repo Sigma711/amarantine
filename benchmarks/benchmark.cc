@@ -511,6 +511,9 @@ void print_available_libs() {
 
 // Main benchmark
 int main(int argc, char* argv[]) {
+  (void)argc;
+  (void)argv;
+
   std::cout << "========================================\n";
   std::cout << "  Amarantine Performance Benchmark\n";
   std::cout << "========================================\n\n";
